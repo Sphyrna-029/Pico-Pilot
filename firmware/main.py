@@ -1,4 +1,4 @@
-from math import radians, cos, sin, asin, sqrt, atan
+from math import *
 from machine import Pin, UART, I2C
 from ssd1306 import SSD1306_I2C
 from imu import MPU6050
@@ -150,9 +150,11 @@ def haversine(lon1, lat1, lon2, lat2):
     return km
 
 def bearing(lon1, lat1, lon2, lat2):
-    bearing = atan2(cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon2 - lon1), sin(lon2 - lon1) * cos(lat2))
+    bearing = atan2(sin(lon2-lon1)*cos(lat2), cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1))
+    bearing = degrees(bearing)
+    bearing = (bearing + 360) % 360
     
-    return degrees(bearing)
+    return bearing
     
 #+++++++++++++++++++++ End Helper functions +++++++++++++++++++++
 
