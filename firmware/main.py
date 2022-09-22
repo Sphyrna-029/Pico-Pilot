@@ -1,9 +1,11 @@
+from math import radians, cos, sin, asin, sqrt
 from machine import Pin, UART, I2C
 from ssd1306 import SSD1306_I2C
 from imu import MPU6050
 import utime, time
 import _thread
 import json
+ 
 
 #Open our vehicle config
 with open("vehicle.config") as configfile:
@@ -77,14 +79,16 @@ def getGPS():
     
         if (parts[0] == "b'$GPGGA" and len(parts) == 15):
             if(parts[1] and parts[2] and parts[3] and parts[4] and parts[5] and parts[6] and parts[7]):
-                print(buff)
-                
                 latitude = convertToDegree(parts[2])
+                
                 if (parts[3] == 'S'):
                     latitude = '-' + latitude
+                    
                 longitude = convertToDegree(parts[4])
+                
                 if (parts[5] == 'W'):
                     longitude = '-' + longitude
+                    
                 satellites = parts[7]
                 GPStime = parts[1][0:2] + ":" + parts[1][2:4] + ":" + parts[1][4:6]
                 FIX_STATUS = True
@@ -116,7 +120,7 @@ def getImu():
 
     return data
 
-#Helper function for GPS
+#+++++++++++++++++++++ Helper functions +++++++++++++++++++++
 def convertToDegree(RawDegrees):
     RawAsFloat = float(RawDegrees)
     firstdigits = int(RawAsFloat/100) 
@@ -126,6 +130,25 @@ def convertToDegree(RawDegrees):
     Converted = '{0:.6f}'.format(Converted) 
     return str(Converted)
     
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    
+    # Radius of earth in kilometers is 6371
+    km = 6371 * c
+    
+    return km
+
 #Instaniate GPS Thread
 _thread.start_new_thread(getGPS, ())
 
@@ -147,20 +170,26 @@ while True:
             
         except:
             print("Failed to connect to telemetry device")
-    
-    print("Latitude: "+latitude)
-    print("Longitude: "+longitude)
-    print("Satellites: " +satellites)
-    print("Time: "+GPStime)
+            
+    #Get distance to next waypoint
+    if vehicleConfig["WaypointMission"]["Enabled"]:
+        if latitude:
+            print("Calculated distance to waypoint")
+            print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][0]), float(vehicleConfig["WaypointMission"]["Waypoints"][1])))
+            
+    print("Latitude: " + latitude)
+    print("Longitude: " + longitude)
+    print("Satellites: " + satellites)
+    print("Time: " + GPStime)
     print("----------------------")
     print(getImu())
         
     oled.fill(0)
     oled.text("----------------------", 0, 0)
-    oled.text("La: "+latitude, 0, 20)
-    oled.text("Lo: "+longitude, 0, 30)
+    oled.text("Lat: "+latitude, 0, 20)
+    oled.text("Lon: "+longitude, 0, 30)
     oled.text("Sat: "+satellites, 0, 40)
-    oled.text("T: "+GPStime, 0, 50)
+    oled.text("Tim: "+GPStime, 0, 50)
     oled.show()
         
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
