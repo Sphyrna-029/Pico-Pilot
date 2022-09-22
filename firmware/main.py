@@ -1,4 +1,4 @@
-from math import radians, cos, sin, asin, sqrt
+from math import radians, cos, sin, asin, sqrt, atan
 from machine import Pin, UART, I2C
 from ssd1306 import SSD1306_I2C
 from imu import MPU6050
@@ -76,7 +76,7 @@ def getGPS():
         gpsModule.readline()
         buff = str(gpsModule.readline())
         parts = buff.split(',')
-    
+
         if (parts[0] == "b'$GPGGA" and len(parts) == 15):
             if(parts[1] and parts[2] and parts[3] and parts[4] and parts[5] and parts[6] and parts[7]):
                 latitude = convertToDegree(parts[2])
@@ -149,6 +149,13 @@ def haversine(lon1, lat1, lon2, lat2):
     
     return km
 
+def bearing(lon1, lat1, lon2, lat2):
+    bearing = atan2(cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(lon2 - lon1), sin(lon2 - lon1) * cos(lat2))
+    
+    return degrees(bearing)
+    
+#+++++++++++++++++++++ End Helper functions +++++++++++++++++++++
+
 #Instaniate GPS Thread
 _thread.start_new_thread(getGPS, ())
 
@@ -174,8 +181,11 @@ while True:
     #Get distance to next waypoint
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
-            print("Calculated distance to waypoint")
+            print("Calculated distance to waypoint:")
             print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
+            
+            print("Bearing to next waypoint:")
+            print(bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
             
     print("Latitude: " + latitude)
     print("Longitude: " + longitude)
