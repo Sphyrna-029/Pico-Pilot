@@ -175,7 +175,7 @@ while True:
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
             print("Calculated distance to waypoint")
-            print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][0]), float(vehicleConfig["WaypointMission"]["Waypoints"][1])))
+            print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
             
     print("Latitude: " + latitude)
     print("Longitude: " + longitude)
