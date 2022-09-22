@@ -5,18 +5,18 @@ import utime, time
 import _thread
 import json
 
-#Instantiate our static objects
-i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
-oled = SSD1306_I2C(128, 64, i2c)
-gpsModule = UART(1, baudrate=9600, tx=Pin(4), rx=Pin(5))
-telemetry = UART(0, baudrate=9600, tx=Pin(12), rx=Pin(13))
-imu = MPU6050(i2c)
-
 #Open our vehicle config
 with open("vehicle.config") as configfile:
     vehicleConfig = json.load(configfile)
     configfile.close()
     print("Config loaded!")
+
+#Instantiate our static objects
+i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
+oled = SSD1306_I2C(128, 64, i2c)
+gpsModule = UART(1, baudrate=9600, tx=Pin(4), rx=Pin(5))
+telemetryPort = UART(0, baudrate=vehicleConfig["TelemetryBaud"], tx=Pin(12), rx=Pin(13))
+imu = MPU6050(i2c)
 
 #Perform self health check
 def post():
@@ -116,7 +116,7 @@ def getImu():
 
     return data
 
-
+#Helper function for GPS
 def convertToDegree(RawDegrees):
     RawAsFloat = float(RawDegrees)
     firstdigits = int(RawAsFloat/100) 
@@ -131,6 +131,22 @@ _thread.start_new_thread(getGPS, ())
 
 #Main thread
 while True:
+    
+    #Send telemetry data.
+    if vehicleConfig["Telemetry"]:
+    
+        dataBuff = []
+        dataBuff.append(getImu())
+        dataBuff.append(latitude)
+        dataBuff.append(longitude)
+        dataBuff.append(satellites)
+        dataBuff.append(GPStime)
+        
+        try:
+            telemetryPort.write(databuff)
+            
+        except:
+            print("Failed to connect to telemetry device")
     
     print("Latitude: "+latitude)
     print("Longitude: "+longitude)
