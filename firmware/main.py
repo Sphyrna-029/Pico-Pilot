@@ -2,6 +2,7 @@ from math import *
 from machine import Pin, UART, I2C
 from ssd1306 import SSD1306_I2C
 from imu import MPU6050
+from simple_pid import PID
 import utime, time
 import _thread
 import json
@@ -121,6 +122,7 @@ def getImu():
     return data
 
 #+++++++++++++++++++++ Helper functions +++++++++++++++++++++
+
 def convertToDegree(RawDegrees):
     RawAsFloat = float(RawDegrees)
     firstdigits = int(RawAsFloat/100) 
@@ -161,6 +163,29 @@ def bearing(lon1, lat1, lon2, lat2):
 #Instaniate GPS Thread
 _thread.start_new_thread(getGPS, ())
 
+##+++++++++++++++++++++ PID Controllers +++++++++++++++++++++
+#PID Rudder
+p1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
+i1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
+d1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
+
+pid1 = PID(p1, i1, d1, setpoint=1)
+
+#PID sample rate
+pid1.sample_time = 0.5 
+
+#PID Throttle
+p2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["P"]
+i2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["I"]
+d2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["D"]
+
+pid2 = PID(p2, i2, d2, setpoint=1)
+
+#PID sample rate
+pid2.sample_time = 0.5
+
+##+++++++++++++++++++++ End PID Controllers +++++++++++++++++++++
+
 #Main thread
 while True:
     
@@ -180,6 +205,7 @@ while True:
         except:
             print("Failed to connect to telemetry device")
             
+            
     #Get distance to next waypoint
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
@@ -188,6 +214,7 @@ while True:
             
             print("Bearing to next waypoint:")
             print(bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
+            
             
     print("Latitude: " + latitude)
     print("Longitude: " + longitude)
