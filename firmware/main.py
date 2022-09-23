@@ -158,6 +158,11 @@ def bearing(lon1, lat1, lon2, lat2):
     
     return bearing
     
+
+def vBearing():
+    #Code to get vehicle bearing based on true north. Magnometer code goes here. Returns 0-360 degrees
+    return 0
+    
 #+++++++++++++++++++++ End Helper functions +++++++++++++++++++++
 
 #Instaniate GPS Thread
@@ -169,20 +174,20 @@ p1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
 i1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
 d1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
 
-pid1 = PID(p1, i1, d1, setpoint=1)
+pid1 = PID(p1, i1, d1)
 
 #PID sample rate
-pid1.sample_time = 0.5 
+pid1.sample_time = vehicleConfig["UpdateFrequencyHz"] 
 
 #PID Throttle
 p2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["P"]
 i2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["I"]
 d2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["D"]
 
-pid2 = PID(p2, i2, d2, setpoint=1)
+pid2 = PID(p2, i2, d2)
 
 #PID sample rate
-pid2.sample_time = 0.5
+pid2.sample_time = vehicleConfig["UpdateFrequencyHz"]
 
 ##+++++++++++++++++++++ End PID Controllers +++++++++++++++++++++
 
@@ -212,6 +217,7 @@ while True:
             print("Calculated distance to waypoint:")
             print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
             
+            #Get bearing to next waypoint
             print("Bearing to next waypoint:")
             print(bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
             
