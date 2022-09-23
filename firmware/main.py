@@ -179,12 +179,9 @@ def vBearing():
     #Code to get vehicle bearing based on true north. Magnometer code goes here. Returns 0-360 degrees
     return 0
     
-#+++++++++++++++++++++ End Helper functions +++++++++++++++++++++
+#+++++++++++++++++++++ End Helper functions +++++++++++++++++
 
-#Instaniate dataHandler thread. This thread handles collection of gps data, transmitting telemetry data, and recieving telemetry data.
-_thread.start_new_thread(dataHandler, ())
-
-##+++++++++++++++++++++ PID Controllers +++++++++++++++++++++
+#++++++++++++++++++++++ PID Controllers +++++++++++++++++++++
 #PID Rudder
 p1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
 i1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
@@ -206,6 +203,10 @@ pid2 = PID(p2, i2, d2)
 pid2.sample_time = vehicleConfig["UpdateFrequencyHz"]
 
 ##+++++++++++++++++++++ End PID Controllers +++++++++++++++++++++
+
+
+#Instaniate dataHandler thread. This thread handles collection of gps data, transmitting telemetry data, and recieving telemetry data.
+_thread.start_new_thread(dataHandler, ())
 
 #Main thread
 while True: 
