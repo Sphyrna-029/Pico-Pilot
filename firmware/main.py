@@ -70,7 +70,7 @@ GPStime = ""
 
 
 #GPS Handler Function
-def getGPS():
+def dataHandler():
     global FIX_STATUS, latitude, longitude, satellites, GPStime
     
     while True:
@@ -97,6 +97,22 @@ def getGPS():
         else:
             FIX_STATUS = False
             
+        #Send telemetry data.
+        if vehicleConfig["Telemetry"]:
+    
+            dataBuff = []
+            dataBuff.append(getImu())
+            dataBuff.append(latitude)
+            dataBuff.append(longitude)
+            dataBuff.append(satellites)
+            dataBuff.append(GPStime)
+        
+            try:
+                telemetryPort.write(databuff)
+            
+            except:
+                print("Failed to connect to telemetry device")
+                
         utime.sleep_ms(500)
 
 #Gather IMU Data 
@@ -165,8 +181,8 @@ def vBearing():
     
 #+++++++++++++++++++++ End Helper functions +++++++++++++++++++++
 
-#Instaniate GPS Thread
-_thread.start_new_thread(getGPS, ())
+#Instaniate dataHandler thread. This thread handles collection of gps data, transmitting telemetry data, and recieving telemetry data.
+_thread.start_new_thread(dataHandler, ())
 
 ##+++++++++++++++++++++ PID Controllers +++++++++++++++++++++
 #PID Rudder
@@ -192,24 +208,7 @@ pid2.sample_time = vehicleConfig["UpdateFrequencyHz"]
 ##+++++++++++++++++++++ End PID Controllers +++++++++++++++++++++
 
 #Main thread
-while True:
-    
-    #Send telemetry data.
-    if vehicleConfig["Telemetry"]:
-    
-        dataBuff = []
-        dataBuff.append(getImu())
-        dataBuff.append(latitude)
-        dataBuff.append(longitude)
-        dataBuff.append(satellites)
-        dataBuff.append(GPStime)
-        
-        try:
-            telemetryPort.write(databuff)
-            
-        except:
-            print("Failed to connect to telemetry device")
-            
+while True: 
             
     #Get distance to next waypoint
     if vehicleConfig["WaypointMission"]["Enabled"]:
