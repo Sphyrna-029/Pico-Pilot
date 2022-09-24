@@ -1,5 +1,5 @@
 from math import *
-from machine import Pin, UART, I2C
+from machine import Pin, UART, I2C, PWM
 from ssd1306 import SSD1306_I2C
 from imu import MPU6050
 from simple_pid import PID
@@ -175,10 +175,41 @@ def bearing(lon1, lat1, lon2, lat2):
     return bearing
     
 
-def vBearing():
+def vehicleBearing():
     #Code to get vehicle bearing based on true north. Magnometer code goes here. Returns 0-360 degrees
-    return 0
+    return 55
     
+    
+def vehicleSpeed():
+    #Code to get vehicle speed (km/s) from gps
+    return 2
+
+#Take 1-100 input from PID and pin selection and convert to duty cycle for PWM
+def pwmController(val, pinout):
+    min = 1000000
+    max = 2000000
+    stop = max - min / 2 + min #Return servos to middle or stop motors
+    
+    if val > max or val < min:
+        pwm = PWM(Pin(pinout))
+        pwm.freq(50)
+        pwm.duty_ns(stop)
+        
+        print("PWM_Request: " + str(val)) 
+        print("DutyCycle: " + str(stop))
+    
+    else:
+        #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
+        out = ((max - min) * val) + min
+    
+        pwm = PWM(Pin(pinout))
+        pwm.freq(50)
+        pwm.duty_ns(out)
+        
+        print("PWM_Request: " + str(val)) 
+        print("DutyCycle: " + str(out))
+
+
 #+++++++++++++++++++++ End Helper functions +++++++++++++++++
 
 #++++++++++++++++++++++ PID Controllers +++++++++++++++++++++
@@ -190,7 +221,8 @@ d1 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
 pid1 = PID(p1, i1, d1)
 
 #PID sample rate
-pid1.sample_time = vehicleConfig["UpdateFrequencyHz"] 
+pid1.sample_time = vehicleConfig["UpdateFrequencyHz"]
+pid1.output_limits = (0, 100)
 
 #PID Throttle
 p2 = vehicleConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["P"]
@@ -201,25 +233,34 @@ pid2 = PID(p2, i2, d2)
 
 #PID sample rate
 pid2.sample_time = vehicleConfig["UpdateFrequencyHz"]
+pid2.output_limits = (0, 100)
 
 ##+++++++++++++++++++++ End PID Controllers +++++++++++++++++++++
 
 
-#Instaniate dataHandler thread. This thread handles collection of gps data, transmitting telemetry data, and recieving telemetry data.
+#Instantiate dataHandler thread. This thread handles collection of gps data, transmitting telemetry data, and recieving telemetry data.
 _thread.start_new_thread(dataHandler, ())
 
+#Instantiate some vars
+waypointDistance = 0
+waypointBearing = 0
+
 #Main thread
-while True: 
+while True:
             
-    #Get distance to next waypoint
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
-            print("Calculated distance to waypoint:")
-            print(haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
+            waypointDistance = haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
+            waypointBearing = bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
             
-            #Get bearing to next waypoint
-            print("Bearing to next waypoint:")
-            print(bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0])))
+            pid1.setpoint = waypointBearing
+            pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
+            
+            ruddControl = pid1(vehicleBearing)
+            throttControl = pid2(vehicleSpeed)
+            
+            pwmController(ruddControl, 6)
+            pwmController(throttControl, 8)
             
             
     print("Latitude: " + latitude)
@@ -231,10 +272,13 @@ while True:
         
     oled.fill(0)
     oled.text("----------------------", 0, 0)
-    oled.text("Lat: "+latitude, 0, 20)
-    oled.text("Lon: "+longitude, 0, 30)
-    oled.text("Sat: "+satellites, 0, 40)
-    oled.text("Tim: "+GPStime, 0, 50)
+    oled.text("Lat: " + latitude, 0, 10)
+    oled.text("Lon: " + longitude, 0, 20)
+    oled.text("Sat: " + satellites, 0, 30)
+    oled.text("Tim: " + GPStime, 0, 40)
+    oled.text("D:"+ str(waypointDistance), 0, 50)
+    oled.text("B:"+ str(waypointBearing), 85, 50)
+    oled.text("----------------------", 0, 60)
     oled.show()
         
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
