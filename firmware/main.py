@@ -182,7 +182,7 @@ def vehicleBearing():
     
 def vehicleSpeed():
     #Code to get vehicle speed (km/s) from gps
-    return 2
+    return 1
 
 #Take 1-100 input from PID and pin selection and convert to duty cycle for PWM
 def pwmController(val, pinout):
@@ -190,21 +190,23 @@ def pwmController(val, pinout):
     max = 2000000
     stop = max - min / 2 + min #Return servos to middle or stop motors
     
-    if val > max or val < min:
+    if val > 100 or val < 1:
         pwm = PWM(Pin(pinout))
         pwm.freq(50)
-        pwm.duty_ns(stop)
+        pwm.duty_ns(int(stop))
         
-        print("PWM_Request: " + str(val)) 
+        print(pinout)
+        print("PWM_Request: Stop") 
         print("DutyCycle: " + str(stop))
     
     else:
         #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
-        out = ((max - min) * val) + min
+        #out = ((max - min) * val) + min
+        out = ((( val - 1 ) * (max - min)) / (100 - 1)) + min
     
         pwm = PWM(Pin(pinout))
         pwm.freq(50)
-        pwm.duty_ns(out)
+        pwm.duty_ns(int(out))
         
         print("PWM_Request: " + str(val)) 
         print("DutyCycle: " + str(out))
@@ -250,15 +252,22 @@ while True:
             
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
+            
+            vspeed = vehicleSpeed()
+            vbearing = vehicleBearing()
+            
             waypointDistance = haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
             waypointBearing = bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
             
+            #Set PID target values
             pid1.setpoint = waypointBearing
             pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
             
-            ruddControl = pid1(vehicleBearing)
-            throttControl = pid2(vehicleSpeed)
+            #Update PID 
+            ruddControl = pid1(vbearing)
+            throttControl = pid2(vspeed)
             
+            #PID output to PWM controller
             pwmController(ruddControl, 6)
             pwmController(throttControl, 8)
             
