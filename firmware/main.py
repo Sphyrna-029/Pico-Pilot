@@ -175,7 +175,7 @@ def bearing(lon1, lat1, lon2, lat2):
     return bearing
     
 
-def vehicleBearing():
+def vehicleAzimuth():
     #Code to get vehicle bearing based on true north. Magnometer code goes here. Returns 0-360 degrees
     return 55
     
@@ -198,6 +198,8 @@ def pwmController(val, pinout):
         print(pinout)
         print("PWM_Request: Stop") 
         print("DutyCycle: " + str(stop))
+        
+        return 0, val
     
     else:
         #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
@@ -210,6 +212,8 @@ def pwmController(val, pinout):
         
         print("PWM_Request: " + str(val)) 
         print("DutyCycle: " + str(out))
+        
+        return out, val
 
 
 #+++++++++++++++++++++ End Helper functions +++++++++++++++++
@@ -246,16 +250,21 @@ _thread.start_new_thread(dataHandler, ())
 #Instantiate some vars
 waypointDistance = 0
 waypointBearing = 0
+RudderActual = 0
+RudderRequest = 0
+ThrottleRequest = 0
+ThrottleActual = 0
 
 #Main thread
 while True:
-            
     if vehicleConfig["WaypointMission"]["Enabled"]:
         if latitude:
             
+            #Get vehicle data
             vspeed = vehicleSpeed()
-            vbearing = vehicleBearing()
+            vbearing = vehicleAzimuth()
             
+            #Get our waypoint data
             waypointDistance = haversine(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
             waypointBearing = bearing(float(longitude), float(latitude), float(vehicleConfig["WaypointMission"]["Waypoints"][1]), float(vehicleConfig["WaypointMission"]["Waypoints"][0]))
             
@@ -268,26 +277,28 @@ while True:
             throttControl = pid2(vspeed)
             
             #PID output to PWM controller
-            pwmController(ruddControl, 6)
-            pwmController(throttControl, 8)
+            RudderActual, RudderRequest = pwmController(ruddControl, 6)
+            ThrottleActual, ThrottleRequest = pwmController(throttControl, 8)
             
             
-    print("Latitude: " + latitude)
-    print("Longitude: " + longitude)
+    #print("Latitude: " + latitude)
+    #print("Longitude: " + longitude)
     print("Satellites: " + satellites)
     print("Time: " + GPStime)
     print("----------------------")
     print(getImu())
         
     oled.fill(0)
-    oled.text("----------------------", 0, 0)
-    oled.text("Lat: " + latitude, 0, 10)
-    oled.text("Lon: " + longitude, 0, 20)
-    oled.text("Sat: " + satellites, 0, 30)
-    oled.text("Tim: " + GPStime, 0, 40)
-    oled.text("D:"+ str(waypointDistance), 0, 50)
-    oled.text("B:"+ str(waypointBearing), 85, 50)
-    oled.text("----------------------", 0, 60)
+    oled.text("Lat: " + latitude, 0, 0)
+    oled.text("Lon: " + longitude, 0, 10)
+    oled.text("Sat: " + satellites, 0, 20)
+    #oled.text("Tim: " + GPStime, 30, 20)
+    oled.text("D:"+ str(waypointDistance), 0, 30)
+    oled.text("B:"+ str(waypointBearing), 75, 30)
+    oled.text("TR:" + str(ThrottleRequest), 0, 40)
+    oled.text("TA:" + str(ThrottleActual), 50, 40)
+    oled.text("RR:" + str(RudderRequest), 0, 50)
+    oled.text("RA:" + str(RudderActual), 50, 50)
     oled.show()
         
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
