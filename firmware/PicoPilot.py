@@ -13,6 +13,7 @@ class Vehicle(object):
         self.mission = mission
         self.vconfig = picoConfig
 
+        #PID Rudder
         self.p1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
         self.i1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
         self.d1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
@@ -36,8 +37,8 @@ class Vehicle(object):
 
 
     #Stop mission in progress. Returns all vehicle peripherals to neutral. 
-    def stop():
-        missionStatus = "stop"
+    def stop(self):
+        self.missionStatus = "stop"
 
 
     #Main function 
@@ -160,8 +161,8 @@ class Vehicle(object):
 
 class telemetry(object):
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, picoConfig):
+        self.picoConfig = picoConfig
 
     def dataHandler(self):
         global FIX_STATUS, latitude, longitude, satellites, GPStime
