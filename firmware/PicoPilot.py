@@ -9,30 +9,29 @@ class Vehicle(object):
     homeCoordinates = None
 
     def __init__(self, picoConfig):
-        self.vtype = picoConfig["VehicleProfile"]["VehicleType"]
         self.mission = picoConfig["WaypointMission"]["Enabled"]
         self.vconfig = picoConfig
 
         #PID Rudder
-        self.p1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
-        self.i1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
-        self.d1 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
+        self.p1 = self.vconfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["P"]
+        self.i1 = self.vconfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["I"]
+        self.d1 = self.vconfig["VehicleProfile"]["ChannelMappings"]["SteeringPID"]["D"]
 
         self.pid1 = PID(self.p1, self.i1, self.d1)
 
         #PID sample rate
-        self.pid1.sample_time = self.picoConfig["UpdateFrequencyHz"]
+        self.pid1.sample_time = self.vconfig["UpdateFrequencyHz"]
         self.pid1.output_limits = (0, 100)
 
         #PID Throttle
-        self.p2 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["P"]
-        self.i2 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["I"]
-        self.d2 = self.picoConfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["D"]
+        self.p2 = self.vconfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["P"]
+        self.i2 = self.vconfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["I"]
+        self.d2 = self.vconfig["VehicleProfile"]["ChannelMappings"]["ThrottlePID"]["D"]
 
         self.pid2 = PID(self.p2, self.i2, self.d2)
 
         #PID sample rate
-        self.pid2.sample_time = self.picoConfig["UpdateFrequencyHz"]
+        self.pid2.sample_time = self.vconfig["UpdateFrequencyHz"]
         self.pid2.output_limits = (0, 100)
 
 
@@ -71,10 +70,15 @@ class Vehicle(object):
         return random.randint(0, 360)
     
     
-    #Returns vehicle speed, requires unit of measurement (mph/kmh)
+    #Returns vehicle speed, requires unit of measurement (Knots/Kmh)
     def getSpeed(self, unit):
         
-        return random.randint(1, 15)
+        if unit == "kmh":
+            return GPSspeedK
+        
+        elif unit == "knots":
+            return GPSspeedN
+
 
     #Returns vehicle location if available, long first then lat
     def getCoordinates(self):
@@ -90,7 +94,7 @@ class Vehicle(object):
     def getBearing(self, lon1, lat1, lon2, lat2):
         bearing = atan2(sin(lon2-lon1)*cos(lat2), cos(lat1)*sin(lat2)-sin(lat1)*cos(lat2)*cos(lon2-lon1))
         bearing = degrees(bearing)
-        bearing = (bearing + 360) % 360
+        bearing = (bearing + 360) % 360 #Compensated for Azimuth
     
         return bearing
 
@@ -129,13 +133,13 @@ class Vehicle(object):
 class Telemetry(object):
 
     def __init__(self, picoConfig):
-        self.picoConfig = picoConfig
+        self.vconfig = picoConfig
 
     def dataHandler(self):
-        global FIX_STATUS, latitude, longitude, satellites, GPStime, GPSspeed, GPSaltitude
+        global FIX_STATUS, latitude, longitude, satellites, GPStime, GPSspeedK, GPSspeedN, GPSaltitude
     
         gpsModule = UART(1, baudrate=9600, tx=Pin(4), rx=Pin(5))
-        telemetryPort = UART(0, baudrate=self.picoConfig["TelemetryBaud"], tx=Pin(12), rx=Pin(13))
+        telemetryPort = UART(0, baudrate=self.vconfig["TelemetryBaud"], tx=Pin(12), rx=Pin(13))
 
         buff = bytearray(255)
         FIX_STATUS = False
@@ -143,7 +147,8 @@ class Telemetry(object):
         longitude = ""
         satellites = ""
         GPStime = ""
-        GPSspeed = ""
+        GPSspeedK = ""
+        GPSspeedN = ""
         GPSaltitude = ""
 
         while True:
@@ -168,13 +173,14 @@ class Telemetry(object):
                     FIX_STATUS = True
 
             elif (parts[0] == "b'$GPVTG"):
-                print(parts)
+                GPSspeedK = parts[7]
+                GPSspeedN = parts[5]
                 
             else:
                 FIX_STATUS = False
             
             #Send telemetry data.
-            if self.picoConfig["Telemetry"]:
+            if self.vconfig["Telemetry"]:
     
                 dataBuff = []
                 #dataBuff.append(getImu())
