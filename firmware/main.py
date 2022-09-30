@@ -29,8 +29,10 @@ while not home:
         home.append(long)
         home.append(lat)
         vehicle.homeCoordinates = home
-
+        vehicle.missionStatus = True
         #Do Happy beep
+
+        print("Home saved, mission start!")
 
     else:
         print("Waiting for home gps fix")
@@ -40,10 +42,10 @@ while not home:
  
 while True:
 
-    if vehicle.missionStatus:
+    if vehicle.getCoordinates():
+        vlon, vlat = vehicle.getCoordinates()
 
-        if vehicle.getCoordinates():
-            vlon, vlat = vehicle.getCoordinates()
+        if vehicle.missionStatus:
 
             for waypoint in vehicleConfig["WaypointMission"]["Waypoints"]:
                 waypointDistance = vehicle.destinationDistance(float(vlon), float(vlat), float(waypoint[0]), float(waypoint[1]))
