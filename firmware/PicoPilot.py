@@ -2,15 +2,15 @@ from machine import Pin, UART, I2C, PWM
 from simple_pid import PID
 from math import *
 import utime, time
+import random
 
 class Vehicle(object):
-    vtypes = ["boat", "telescope"]
-    mtypes = ["heading", "cruisecontrol", "waypoint"]
     missionStatus = None
+    homeCoordinates = None
 
-    def __init__(self, vtype, mission, picoConfig):
-        self.vtype = vtype
-        self.mission = mission
+    def __init__(self, picoConfig):
+        self.vtype = picoConfig["VehicleProfile"]["VehicleType"]
+        self.mission = picoConfig["WaypointMission"]["Enabled"]
         self.vconfig = picoConfig
 
         #PID Rudder
@@ -40,46 +40,12 @@ class Vehicle(object):
     def stop(self):
         self.missionStatus = "stop"
 
-
-    #Main function 
-    def missionStart(self):
-        global waypointDistance, waypointBearing, RudderActual, RudderRequest, ThrottleRequest, ThrottleActual
-        missionStatus = "start"
-
-        while True:
-            if missionStatus != "start":
-                if self.mission == "waypoint":
-                    if self.getCoordinates:
-            
-                        #Get vehicle data
-                        vspeed = self.getSpeed("kmh")
-                        vbearing = self.vehicleAzimuth()
-            
-                        #Get our waypoint data
-                        waypointDistance = self.haversine(float(longitude), float(latitude), float(self.picoConfig["WaypointMission"]["Waypoints"][1]), float(self.picoConfig["WaypointMission"]["Waypoints"][0]))
-                        waypointBearing = self.getBearing(float(longitude), float(latitude), float(self.picoConfig["WaypointMission"]["Waypoints"][1]), float(self.picoConfig["WaypointMission"]["Waypoints"][0]))
-            
-                        #Set PID target values
-                        self.pid1.setpoint = waypointBearing
-                        self.pid2.setpoint = self.picoConfig["WaypointMission"]["Speed"]
-            
-                        #Update PID 
-                        ruddControl = self.pid1(vbearing)
-                        throttControl = self.pid2(vspeed)
-            
-                        #PID output to PWM controller
-                        RudderActual, RudderRequest = self.pwmController(ruddControl, 6)
-                        ThrottleActual, ThrottleRequest = self.pwmController(throttControl, 8)
-            
-            elif missionStatus == "stop":
-                self.pwmController(ruddControl, 0)
-                self.pwmController(throttControl, 0)
-
-            time.sleep(self.picoConfig["UpdateFrequencyHz"])
+        self.pwm(0, self.vconfig["ChannelMappings"]["Rudder"])
+        self.pwm(0, self.vconfig["ChannelMappings"]["Throttle"])
 
 
     #Returns distance between two coordinate points in km
-    def haversine(self, lon1, lat1, lon2, lat2):
+    def destinationDistance(self, lon1, lat1, lon2, lat2):
         """
             Calculate the great circle distance between two points 
             on the earth (specified in decimal degrees)
@@ -102,13 +68,13 @@ class Vehicle(object):
     #Return vehicle azimuth based on true north 
     def getAzimuth(self):
         
-        return 55
+        return random.randint(0, 360)
     
     
     #Returns vehicle speed, requires unit of measurement (mph/kmh)
     def getSpeed(self, unit):
         
-        return 7
+        return random.randint(1, 15)
 
     #Returns vehicle location if available, long first then lat
     def getCoordinates(self):
@@ -129,12 +95,12 @@ class Vehicle(object):
         return bearing
 
 
-    def pwmController(self, val, pinout):
+    def pwm(self, val, pinout):
         min = 1000000
         max = 2000000
-        stop = max - min / 2 + min #Return servos to middle or stop motors
     
         if val > 100 or val < 1:
+            stop = max - min / 2 + min #Return servos to middle or stop motors
             pwm = PWM(Pin(pinout))
             pwm.freq(50)
             pwm.duty_ns(int(stop))
@@ -145,6 +111,7 @@ class Vehicle(object):
         
             return 0, val
     
+
         else:
             #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
             #out = ((max - min) * val) + min
@@ -159,13 +126,13 @@ class Vehicle(object):
         
             return out, val
 
-class telemetry(object):
+class Telemetry(object):
 
     def __init__(self, picoConfig):
         self.picoConfig = picoConfig
 
     def dataHandler(self):
-        global FIX_STATUS, latitude, longitude, satellites, GPStime
+        global FIX_STATUS, latitude, longitude, satellites, GPStime, GPSspeed, GPSaltitude
     
         gpsModule = UART(1, baudrate=9600, tx=Pin(4), rx=Pin(5))
         telemetryPort = UART(0, baudrate=self.picoConfig["TelemetryBaud"], tx=Pin(12), rx=Pin(13))
@@ -176,6 +143,8 @@ class telemetry(object):
         longitude = ""
         satellites = ""
         GPStime = ""
+        GPSspeed = ""
+        GPSaltitude = ""
 
         while True:
             gpsModule.readline()
@@ -197,6 +166,9 @@ class telemetry(object):
                     satellites = parts[7]
                     GPStime = parts[1][0:2] + ":" + parts[1][2:4] + ":" + parts[1][4:6]
                     FIX_STATUS = True
+
+            elif (parts[0] == "b'$GPVTG"):
+                print(parts)
                 
             else:
                 FIX_STATUS = False
