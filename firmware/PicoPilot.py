@@ -7,6 +7,10 @@ import random
 class Vehicle(object):
     missionStatus = None
     homeCoordinates = None
+    longitude = None
+    latitude = None
+    speed = None
+    altitude = None
 
     def __init__(self, picoConfig):
         self.mission = picoConfig["WaypointMission"]["Enabled"]
@@ -83,9 +87,9 @@ class Vehicle(object):
     #Returns vehicle location if available, long first then lat
     def getCoordinates(self):
 
-        if longitude:
-            if latitude:
-                return longitude, latitude
+        if self.longitude:
+            if self.latitude:
+                return self.longitude, self.latitude
 
         else:
             return None
@@ -132,8 +136,9 @@ class Vehicle(object):
 
 class Telemetry(object):
 
-    def __init__(self, picoConfig):
+    def __init__(self, vehicle, picoConfig):
         self.vconfig = picoConfig
+        self.vehicle = vehicle
 
     def dataHandler(self):
         global FIX_STATUS, latitude, longitude, satellites, GPStime, GPSspeedK, GPSspeedN, GPSaltitude
@@ -170,11 +175,18 @@ class Telemetry(object):
                     
                     satellites = parts[7]
                     GPStime = parts[1][0:2] + ":" + parts[1][2:4] + ":" + parts[1][4:6]
+
+                    #Update our vehicle location
+                    self.vehicle.longitude = longitude
+                    self.vehicle.latitude = latitude
+
                     FIX_STATUS = True
 
-            elif (parts[0] == "b'$GPVTG"):
+            elif (parts[0] == "b'$GPVTG" and len(parts) == 10):
                 GPSspeedK = parts[7]
                 GPSspeedN = parts[5]
+
+                self.vehicle.speed = GPSspeedK
                 
             else:
                 FIX_STATUS = False
@@ -196,7 +208,6 @@ class Telemetry(object):
                     print("Failed to connect to telemetry device")
                 
             utime.sleep_ms(500)
-
 
     def convertToDegree(self, RawDegrees):
         RawAsFloat = float(RawDegrees)
