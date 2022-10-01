@@ -43,8 +43,8 @@ class Vehicle(object):
     def stop(self):
         self.missionStatus = "stop"
 
-        self.pwm(0, self.vconfig["ChannelMappings"]["Rudder"])
-        self.pwm(0, self.vconfig["ChannelMappings"]["Throttle"])
+        self.pwm("stop", self.vconfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
+        self.pwm("stop", self.vconfig["VehicleProfile"]["ChannelMappings"]["Throttle"])
 
 
     #Returns distance between two coordinate points in km
@@ -72,16 +72,6 @@ class Vehicle(object):
     def getAzimuth(self):
         
         return random.randint(0, 360)
-    
-    
-    #Returns vehicle speed, requires unit of measurement (Knots/Kmh)
-    def getSpeed(self, unit):
-        
-        if unit == "kmh":
-            return GPSspeedK
-        
-        elif unit == "knots":
-            return GPSspeedN
 
 
     #Returns vehicle location if available, long first then lat
@@ -107,7 +97,7 @@ class Vehicle(object):
         min = 1000000
         max = 2000000
     
-        if val > 100 or val < 1:
+        if val == "stop":
             stop = max - min / 2 + min #Return servos to middle or stop motors
             pwm = PWM(Pin(pinout))
             pwm.freq(50)
@@ -186,7 +176,8 @@ class Telemetry(object):
                 GPSspeedK = parts[7]
                 GPSspeedN = parts[5]
 
-                self.vehicle.speed = GPSspeedK
+                #self.vehicle.speed = int(GPSspeedK)
+                self.vehicle.speed = 3
                 
             else:
                 FIX_STATUS = False
