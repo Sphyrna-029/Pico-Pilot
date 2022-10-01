@@ -40,6 +40,7 @@ while not home:
 
     else:
         print("Waiting for home gps fix")
+        print(vehicle.getCoordinates())
 
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
 
@@ -51,19 +52,21 @@ while True:
         if vehicle.missionStatus:
 
             for waypoint in vehicleConfig["WaypointMission"]["Waypoints"]:
+                
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
                 waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
 
                 while waypointDistance <= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
+                    print(waypointDistance)
 
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
                     rudderControl = vehicle.pid1(vehicle.getAzimuth)
-                    throttleControl = vehicle.pid2(vehicle.getSpeed("kmh"))
+                    throttleControl = vehicle.pid2(vehicle.speed)
 
-                    rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["ChannelMappings"]["Rudder"])
-                    throttlePwm, throttlRequest = vehicle.pwm(throttlePwm, vehicleConfig["ChannelMappings"]["Throttle"])
+                    rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
+                    throttlePwm, throttlRequest = vehicle.pwm(throttleControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Throttle"])
 
                     waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
                     waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
@@ -72,6 +75,7 @@ while True:
 
             #If RTH is enabled, return to home after mission complete.
             if vehicleConfig["WaypointMission"]["ReturnToHome"]:
+
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
                 waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
 
@@ -81,10 +85,10 @@ while True:
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
                     rudderControl = vehicle.pid1(vehicle.getAzimuth())
-                    throttleControl = vehicle.pid2(vehicle.getSpeed("kmh"))
+                    throttleControl = vehicle.pid2(vehicle.speed)
 
-                    rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["ChannelMappings"]["Rudder"])
-                    throttlePwm, throttlRequest = vehicle.pwm(throttlePwm, vehicleConfig["ChannelMappings"]["Throttle"])
+                    rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
+                    throttlePwm, throttlRequest = vehicle.pwm(throttleControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Throttle"])
 
                     waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
                     waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
@@ -93,7 +97,8 @@ while True:
             
             #End mission and return pwm to neutral
             vehicle.stop()
-
+            print("mission stop")
+            
         else:
             print("Waiting for gps fix")
 
