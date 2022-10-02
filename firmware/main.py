@@ -40,7 +40,6 @@ while not home:
 
     else:
         print("Waiting for home gps fix")
-        print(vehicle.getCoordinates())
 
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
 
@@ -52,17 +51,21 @@ while True:
         if vehicle.missionStatus:
 
             for waypoint in vehicleConfig["WaypointMission"]["Waypoints"]:
-                
+                print("New destination:" + str(waypoint))
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
                 waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
-
-                while waypointDistance <= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
-                    print(waypointDistance)
+    
+                print(vehicle.longitude, vehicle.latitude)
+                print(waypointDistance)
+                print(waypointBearing)
+                print(vehicle.getAzimuth())
+                
+                while waypointDistance >= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
 
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
-                    rudderControl = vehicle.pid1(vehicle.getAzimuth)
+                    rudderControl = vehicle.pid1(vehicle.getAzimuth())
                     throttleControl = vehicle.pid2(vehicle.speed)
 
                     rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
@@ -78,7 +81,7 @@ while True:
 
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
                 waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
-
+                
                 while waypointDistance <= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
 
                     vehicle.pid1.setpoint = waypointBearing
@@ -97,7 +100,6 @@ while True:
             
             #End mission and return pwm to neutral
             vehicle.stop()
-            print("mission stop")
             
         else:
             print("Waiting for gps fix")
