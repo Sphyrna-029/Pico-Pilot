@@ -43,8 +43,8 @@ class Vehicle(object):
     def stop(self):
         self.missionStatus = "stop"
 
-        self.pwm("stop", self.vconfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
-        self.pwm("stop", self.vconfig["VehicleProfile"]["ChannelMappings"]["Throttle"])
+        self.pwm(0, self.vconfig["ChannelMappings"]["Rudder"])
+        self.pwm(0, self.vconfig["ChannelMappings"]["Throttle"])
 
 
     #Returns distance between two coordinate points in km
@@ -71,7 +71,7 @@ class Vehicle(object):
     #Return vehicle azimuth based on true north 
     def getAzimuth(self):
         
-        return random.randint(0, 360)
+        return 117
 
 
     #Returns vehicle location if available, long first then lat
@@ -96,11 +96,11 @@ class Vehicle(object):
     def pwm(self, val, pinout):
         min = 1000000
         max = 2000000
+        pwm = PWM(Pin(pinout))
+        pwm.freq(50)
     
-        if val == "stop":
+        if val > 100 or val < 1:
             stop = max - min / 2 + min #Return servos to middle or stop motors
-            pwm = PWM(Pin(pinout))
-            pwm.freq(50)
             pwm.duty_ns(int(stop))
         
             print(pinout)
@@ -112,13 +112,10 @@ class Vehicle(object):
 
         else:
             #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
-            #out = ((max - min) * val) + min
             out = ((( val - 1 ) * (max - min)) / (100 - 1)) + min
-    
-            pwm = PWM(Pin(pinout))
-            pwm.freq(50)
             pwm.duty_ns(int(out))
         
+            print(pinout)
             print("PWM_Request: " + str(val)) 
             print("DutyCycle: " + str(out))
         
