@@ -5,19 +5,37 @@ import json
 import py_qmc5883l
 
 
+#Load Config
 with open("track-config.json") as configfile:
     trackConfig = json.load(configfile)
     configfile.close()
     print("Config loaded!")
 
-try:
-    stellariumResponse = urlopen(trackConfig["stellariumAPI"])
-except:
-    print("Failed to access stellarium api: " + trackConfig["stellariumAPI"])
 
-targetData = json.loads(stellariumResponse.read())
+#Init vars
+targetData = ""
+currentStep = 0
+#Initialize E-compass
+sensor = py_qmc5883l.QMC5883L()
+#Set Declination https://www.nwcg.gov/course/ffm/location/65-declination
+sensor.declination = trackConfig["CompassConf"]["Declination"]
+#Get our Azimuth(bearing from true north)
+azimuth = sensor.get_bearing()
 
-print(targetData)
+
+#Get data from stellarium
+def getData():
+    global targetData
+    try:
+        stellariumResponse = urlopen(trackConfig["stellariumAPI"])
+    except:
+        print("Failed to access stellarium api: " + trackConfig["stellariumAPI"])
+
+    targetData = json.loads(stellariumResponse.read())
+
+    print(targetData)
+
+    return targetData
 
 #Azimuth
 GPIO.setmode(GPIO.BOARD)
@@ -78,16 +96,6 @@ def rangeCheck(current, target, tolerance):
     return (current - low) % 360 <= (high - low) % 360
 
 
-
-#Initialize E-Compass
-sensor = py_qmc5883l.QMC5883L()
-
-#Set Declination https://www.nwcg.gov/course/ffm/location/65-declination
-sensor.declination = trackConfig["CompassConf"]["Declination"]
-
-#Get our Azimuth(bearing from true north)
-azimuth = sensor.get_bearing()
-
 #Target degress in hours
 def gotoAzi(target):
 
@@ -114,7 +122,6 @@ def gotoAzi(target):
 #Slew ring is geared, ratio ???
 #Figure out microstepping
 # 90 / 50 = 1.8 steps per degree
-currentStep = 0
 
 #Target degress in hours
 def gotoAlt(target):
@@ -151,6 +158,7 @@ def gotoAlt(target):
 
 #Placeholder main loop
 while True:
+    getData()
     gotoAzi(targetData["azimuth"])
     gotoAlt(targetData["altitude"])
 
