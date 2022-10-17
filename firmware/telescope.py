@@ -2,6 +2,7 @@
 import RPi.GPIO as GPIO, time
 from urllib.request import urlopen
 import json
+import time
 import py_qmc5883l
 
 
