@@ -1,0 +1,24 @@
+{
+    "CompassConf": {
+        "Declination": 10,
+        "Inclination": 0
+    },
+    "AltConf": {
+        "AltDirGPIO": 13,
+        "AltStepGPIO": 19,
+        "AltTolerance": 1,
+        "AltOffset": 0,
+        "TargetAlt": 45,
+        "AltMax": 90,
+        "AltMin": 0
+    },
+    "AziConf": {
+        "AziDirGPIO": 18,
+        "AziStepGPIO": 16,
+        "AziTolerance": 1,
+        "AziOffset": 0,
+        "TargetAzi": 0,
+    },
+    "StepsPerDeg": 0.225,
+    "stellariumAPI": "http://localhost:8090/api/objects/info?name=moon&format=json"
+}
