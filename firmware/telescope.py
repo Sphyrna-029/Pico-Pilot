@@ -1,26 +1,42 @@
 #!/usr/bin/python
 import RPi.GPIO as GPIO, time
+from urllib.request import urlopen
+import json
 import py_qmc5883l
 
 
+with open("track-config.json") as configfile:
+    trackConfig = json.load(configfile)
+    configfile.close()
+    print("Config loaded!")
+
+try:
+    stellariumResponse = urlopen(trackConfig["stellariumAPI"])
+except:
+    print("Failed to access stellarium api: " + trackConfig["stellariumAPI"])
+
+targetData = json.loads(stellariumResponse.read())
+
+print(targetData)
+
 #Azimuth
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(16, GPIO.OUT)
-GPIO.setup(18, GPIO.OUT)
+GPIO.setup(trackConfig["AziConf"]["AziStepGPIO"], GPIO.OUT)
+GPIO.setup(trackConfig["AziConf"]["AziDirGPIO"], GPIO.OUT)
 GPIO.setwarnings(False)
-GPIO.output(16, True)
+GPIO.output(trackConfig["AziConf"]["AziStepGPIO"], True)
 
 #Elevation
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(13, GPIO.OUT)
-GPIO.setup(19, GPIO.OUT)
+GPIO.setup(trackConfig["AltConf"]["AltStepGPIO"], GPIO.OUT)
+GPIO.setup(trackConfig["AltConf"]["AltDirGPIO"], GPIO.OUT)
 GPIO.setwarnings(False)
-GPIO.output(13, True)
+GPIO.output(trackConfig["AltConf"]["AltStepGPIO"], True)
 
 
 #PWM setup
-aziPWM = GPIO.PWM(16, 5000)
-elePWM = GPIO.PWM(13, 5000)
+aziPWM = GPIO.PWM(trackConfig["AziConf"]["AziStepGPIO"], 5000)
+elePWM = GPIO.PWM(trackConfig["AltConf"]["AltStepGPIO"], 5000)
 
 
 def aziMotor(direction, num_steps):
@@ -67,7 +83,7 @@ def rangeCheck(current, target, tolerance):
 sensor = py_qmc5883l.QMC5883L()
 
 #Set Declination https://www.nwcg.gov/course/ffm/location/65-declination
-sensor.declination = 10.02
+sensor.declination = trackConfig["CompassConf"]["Declination"]
 
 #Get our Azimuth(bearing from true north)
 azimuth = sensor.get_bearing()
@@ -85,7 +101,7 @@ def gotoAzi(target):
         elif azimuth < inverseDegree(azimuth):
             aziMotor(False, 1)
     
-        elif rangeCheck(azimuth, target, 0.5):
+        elif rangeCheck(azimuth, target, trackConfig["AziConf"]["AziTolerance"]):
             print("On target! (Azi)")
             return
 
@@ -96,6 +112,7 @@ def gotoAzi(target):
 # 50 steps = 90 degrees, 0 = level with horizon, 50 = straight up and down.
 #Requirements, no limit switches so we will have to track our steps
 #Slew ring is geared, ratio ???
+#Figure out microstepping
 # 90 / 50 = 1.8 steps per degree
 currentStep = 0
 
@@ -105,13 +122,15 @@ def gotoAlt(target):
     global currentStep
 
     #Target altitude converted from degrees to steps
-    targetAlt = target * 1.8
+    targetAlt = target * trackConfig["StepsPerDeg"]
 
-    if target < 0:
+    #Check if target is below horizon
+    if target < trackConfig["AltConf"]["AltMin"]:
         print("Target Alt is out of bounds.")
         return 
     
-    if target > 90:
+    #Check if target is greater than straight up
+    if target > trackConfig["AltConf"]["AltMax"]:
         print("Target Alt is out of bounds.")
         return
 
@@ -125,6 +144,14 @@ def gotoAlt(target):
             altMotor(False, 1)
             currentStep = currentStep - 1 
 
-        elif (targetAlt - 1) <= currentStep <= (targetAlt + 1):
+        elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= currentStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
             print("On target! (Alt)")
             return 
+
+
+#Placeholder main loop
+while True:
+    gotoAzi(targetData["azimuth"])
+    gotoAlt(targetData["altitude"])
+
+    time.sleep(1)
