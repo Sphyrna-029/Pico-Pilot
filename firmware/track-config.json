@@ -3,6 +3,7 @@
         "Declination": 10,
         "Inclination": 0
     },
+
     "AltConf": {
         "AltDirGPIO": 13,
         "AltStepGPIO": 19,
@@ -10,17 +11,22 @@
         "AltOffset": 0,
         "TargetAlt": 45,
         "AltMax": 90,
-        "AltMin": 0
+        "AltMin": 0,
+        "GearRatio": 1
     },
+
     "AziConf": {
         "AziDirGPIO": 18,
         "AziStepGPIO": 16,
         "AziTolerance": 1,
         "AziOffset": 0,
-        "TargetAzi": 0
+        "TargetAzi": 0,
+        "GearRatio": 1
     },
+
     "ms1pin": 17,
     "ms2pin": 24,
     "StepMode": 8,
-    "stellariumAPI": "http://localhost:8090/api/objects/info?name=moon&format=json"
+    "StepsPerDeg": 4.4,
+    "stellariumAPI": "http://localhost:8090/api/main/view?coord=altAz"
 }
