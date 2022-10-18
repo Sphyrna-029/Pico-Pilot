@@ -1,28 +1,31 @@
 #!/usr/bin/python
-import RPi.GPIO as GPIO, time
+from os.path import exists
 from urllib.request import urlopen
+import RPi.GPIO as GPIO, time
 import json
 import time
+import math
+import ast
 import py_qmc5883l
 
 
-#Load Config
+################################## Load Config ##################################
+if not exists("tack-config.json"):
+    print("Config track-config.json not found. Make sure this is in same directory as telescope.py")
+    exit()
+
+
 with open("track-config.json") as configfile:
     trackConfig = json.load(configfile)
     configfile.close()
     print("Config loaded!")
-
+################################## End Load Config ##################################
 
 #Init vars
 targetData = ""
-currentStep = 0
+altStep = 0
+aziStep = 0
 delay = 0.001  # 1 microsecond
-#Initialize E-compass
-sensor = py_qmc5883l.QMC5883L()
-#Set Declination https://www.nwcg.gov/course/ffm/location/65-declination
-sensor.declination = trackConfig["CompassConf"]["Declination"]
-#Get our Azimuth(bearing from true north)
-azimuth = sensor.get_bearing()
 
 
 #Get data from stellarium
@@ -30,15 +33,29 @@ def getData():
     global targetData
 
     try:
-        stellariumResponse = urlopen(trackConfig["stellariumAPI"])
+        stellariumResponse = urlopen("http://localhost:8090/api/main/view?coord=altAz")
     except:
-        print("Failed to access stellarium api: " + trackConfig["stellariumAPI"])
+        print("Failed to access stellarium api: http://localhost:8090/api/main/view?coord=altAz")
 
     targetData = json.loads(stellariumResponse.read())
 
     print(targetData)
 
-    return targetData
+    targetData = ast.literal_eval(targetData["altAz"])
+
+    x, y, z = float(targetData[0]), float(targetData[1]), float(targetData[2])
+
+    #Convert stellarium bullshit view api data to radians
+    altitude = math.asin( z )
+    azimuth = math.atan2(y, x)
+
+    #Convert from radians to degrees
+    azimuth = math.degrees(azimuth)
+    altitude = math.degrees(altitude)
+
+    print((azimuth * -1) + 180, altitude)
+
+    return azimuth, altitude
 
 
 #EasyDriver
@@ -116,26 +133,27 @@ def rangeCheck(current, target, tolerance):
 
 #Target degress in hours
 def gotoAzi(target):
+    global aziStep
+    
+    #Target azi converted from degrees to steps
+    targetAzi = target * trackConfig["StepsPerDeg"]
 
-    while azimuth != target:
-
-        azimuth = sensor.get_bearing()
+    while aziStep != targetAzi:
 
         if azimuth > inverseDegree(azimuth):
-            step(8, "cw", 8, trackConfig["AziConf"]["AziStepGPIO"])
+            step(1 * trackConfig["AziConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
 
         elif azimuth < inverseDegree(azimuth):
-            step(8, "cc", 8, trackConfig["AziConf"]["AziStepGPIO"])
+            step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
     
         elif rangeCheck(azimuth, target, trackConfig["AziConf"]["AziTolerance"]):
             print("On target! (Azi)")
             return
 
 
-#Things to know: 200 steps per rotation
-#Direction: up(True) or down(False)
+#Things to know: 1600 steps per rotation (8 micro)
 #Assume level on power up??? Calibrate on startup
-# 50 steps = 90 degrees, 0 = level with horizon, 50 = straight up and down.
+#400 steps to 90
 #Requirements, no limit switches so we will have to track our steps
 #Slew ring is geared, ratio ???
 #Allow for manual adjusting on fly
@@ -143,7 +161,7 @@ def gotoAzi(target):
 #Target degress in hours
 def gotoAlt(target):
 
-    global currentStep
+    global altStep
 
     #Target altitude converted from degrees to steps
     targetAlt = target * trackConfig["StepsPerDeg"]
@@ -153,30 +171,30 @@ def gotoAlt(target):
         print("Target Alt is out of bounds.")
         return 
     
-    #Check if target is greater than straight up
+    #Check if target is greater than straight up (This should never happen)
     if target > trackConfig["AltConf"]["AltMax"]:
         print("Target Alt is out of bounds.")
         return
 
-    while currentStep != targetAlt:
+    while altStep != targetAlt:
 
-        if currentStep < targetAlt:
-            step(8, "cw", 8, trackConfig["AltConf"]["AltStepGPIO"])
-            currentStep = currentStep + 1
+        if altStep < targetAlt:
+            step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
+            altStep = altStep + 1
 
-        elif currentStep > targetAlt:
-            step(8, "cw", 8, trackConfig["AltConf"]["AltStepGPIO"])
-            currentStep = currentStep - 1 
+        elif altStep > targetAlt:
+            step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
+            altStep = altStep - 1 
 
-        elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= currentStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
+        elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= altStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
             print("On target! (Alt)")
             return 
 
 
 #Placeholder main loop
 while True:
-    getData()
-    gotoAzi(targetData["azimuth"])
-    gotoAlt(targetData["altitude"])
+    azimuth, altitude = getData()
+    gotoAzi(azimuth)
+    gotoAlt(altitude)
 
-    time.sleep(1)
+    time.sleep(0.5)
