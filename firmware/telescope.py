@@ -1,16 +1,15 @@
 #!/usr/bin/python
 from os.path import exists
 from urllib.request import urlopen
-import RPi.GPIO as GPIO, time
+#import RPi.GPIO as GPIO, time
 import json
 import time
 import math
 import ast
-import py_qmc5883l
 
 
 ################################## Load Config ##################################
-if not exists("tack-config.json"):
+if not exists("track-config.json"):
     print("Config track-config.json not found. Make sure this is in same directory as telescope.py")
     exit()
 
@@ -53,11 +52,11 @@ def getData():
     azimuth = math.degrees(azimuth)
     altitude = math.degrees(altitude)
 
-    print((azimuth * -1) + 180, altitude)
+    #print((azimuth * -1) + 180, altitude)
 
     return azimuth, altitude
 
-
+'''
 #EasyDriver
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(trackConfig["ms1pin"], GPIO.OUT)
@@ -70,7 +69,7 @@ GPIO.setup(trackConfig["AziConf"]["AziDirGPIO"], GPIO.OUT)
 #Elevation
 GPIO.setup(trackConfig["AltConf"]["AltStepGPIO"], GPIO.OUT)
 GPIO.setup(trackConfig["AltConf"]["AltDirGPIO"], GPIO.OUT)
-
+'''
 
 '''
 ===============================
@@ -124,54 +123,70 @@ def inverseDegree(x):
 
 #Check if our azimuth is within a degree of tolerance of our target
 def rangeCheck(current, target, tolerance):
-
     low = (target - tolerance) % 360
     high = (target + tolerance) % 360
+
+    print(low, current, high)
 
     return (current - low) % 360 <= (high - low) % 360
 
 
-#Target degress in hours
+#Convert steps to deg taking into account our step mode
+def stepsToDeg(x, ratio):
+    degPerStep = 360 / ((trackConfig["StepMode"] * 200) * ratio)
+    Degrees = x * degPerStep
+
+    return Degrees
+
+
+#Convert degrees to steps taking into account our step mode
+def degToStep(x, ratio):
+    Steps = x / (360 / ((trackConfig["StepMode"] * 200) * ratio))
+
+    return round(Steps)
+
+
+#Move telescope to azimuth target
 def gotoAzi(target):
     global aziStep
     
     #Target azi converted from degrees to steps
-    targetAzi = target * trackConfig["StepsPerDeg"]
+    targetAzi = degToStep(target, trackConfig["AziConf"]["GearRatio"])
 
     while aziStep != targetAzi:
 
-        if azimuth > inverseDegree(azimuth):
-            step(1 * trackConfig["AziConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
+        if stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]) > inverseDegree(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])):
+            if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
+                print("On target! (Azi)")
+                return
+            #step(1 * trackConfig["AziConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
+            aziStep = aziStep - 1
+            print(aziStep)
 
-        elif azimuth < inverseDegree(azimuth):
-            step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
-    
-        elif rangeCheck(azimuth, target, trackConfig["AziConf"]["AziTolerance"]):
-            print("On target! (Azi)")
-            return
+        elif stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]) < inverseDegree(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])):
+            if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
+                print("On target! (Azi)")
+                return
+            #step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
+            aziStep = aziStep + 1 
+            print(aziStep)
+
+    print("On target! (Azi)")
 
 
-#Things to know: 1600 steps per rotation (8 micro)
-#Assume level on power up??? Calibrate on startup
-#400 steps to 90
-#Requirements, no limit switches so we will have to track our steps
-#Slew ring is geared, ratio ???
-#Allow for manual adjusting on fly
-
-#Target degress in hours
+#Move telescope to Altitude Target
 def gotoAlt(target):
-
     global altStep
 
     #Target altitude converted from degrees to steps
-    targetAlt = target * trackConfig["StepsPerDeg"]
+    targetAlt = degToStep(target, trackConfig["AltConf"]["GearRatio"])
 
     #Check if target is below horizon
     if target < trackConfig["AltConf"]["AltMin"]:
         print("Target Alt is out of bounds.")
         return 
     
-    #Check if target is greater than straight up (This should never happen)
+    #Check if target is greater than straight up (This should never happen unless config defaults have changed.)
     if target > trackConfig["AltConf"]["AltMax"]:
         print("Target Alt is out of bounds.")
         return
@@ -179,12 +194,14 @@ def gotoAlt(target):
     while altStep != targetAlt:
 
         if altStep < targetAlt:
-            step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
+            #step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
             altStep = altStep + 1
+            print(altStep)
 
         elif altStep > targetAlt:
-            step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
+            #step(1 * trackConfig["AltConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
             altStep = altStep - 1 
+            print(altStep)
 
         elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= altStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
             print("On target! (Alt)")
@@ -193,6 +210,7 @@ def gotoAlt(target):
 
 #Placeholder main loop
 while True:
+    #Get Azi and Alt from Stellarium in degrees
     azimuth, altitude = getData()
     gotoAzi(azimuth)
     gotoAlt(altitude)
