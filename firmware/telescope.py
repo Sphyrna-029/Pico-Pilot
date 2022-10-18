@@ -16,6 +16,7 @@ with open("track-config.json") as configfile:
 #Init vars
 targetData = ""
 currentStep = 0
+delay = 0.001  # 1 microsecond
 #Initialize E-compass
 sensor = py_qmc5883l.QMC5883L()
 #Set Declination https://www.nwcg.gov/course/ffm/location/65-declination
@@ -27,6 +28,7 @@ azimuth = sensor.get_bearing()
 #Get data from stellarium
 def getData():
     global targetData
+
     try:
         stellariumResponse = urlopen(trackConfig["stellariumAPI"])
     except:
@@ -38,48 +40,63 @@ def getData():
 
     return targetData
 
+
+#EasyDriver
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(trackConfig["ms1pin"], GPIO.OUT)
+GPIO.setup(trackConfig["ms2pin"], GPIO.OUT)
+
 #Azimuth
-GPIO.setmode(GPIO.BOARD)
 GPIO.setup(trackConfig["AziConf"]["AziStepGPIO"], GPIO.OUT)
 GPIO.setup(trackConfig["AziConf"]["AziDirGPIO"], GPIO.OUT)
-GPIO.setwarnings(False)
-GPIO.output(trackConfig["AziConf"]["AziStepGPIO"], True)
 
 #Elevation
-GPIO.setmode(GPIO.BOARD)
 GPIO.setup(trackConfig["AltConf"]["AltStepGPIO"], GPIO.OUT)
 GPIO.setup(trackConfig["AltConf"]["AltDirGPIO"], GPIO.OUT)
-GPIO.setwarnings(False)
-GPIO.output(trackConfig["AltConf"]["AltStepGPIO"], True)
 
 
-#PWM setup
-aziPWM = GPIO.PWM(trackConfig["AziConf"]["AziStepGPIO"], 5000)
-elePWM = GPIO.PWM(trackConfig["AltConf"]["AltStepGPIO"], 5000)
+'''
+===============================
+ MS1	    MS2	       Mode
+===============================
+Low	        Low	    Full step
+High	    Low	    Half step
+Low	        High    Quarter step
+High	    High	Eighth step
+===============================
+'''
 
+def step(steps, dir, microsteps, motorpin, dir_pin):
+    count = 0
 
-def aziMotor(direction, num_steps):
-    aziPWM.ChangeFrequency(5000)
-    GPIO.output(18, direction)
-    while num_steps > 0:
-        aziPWM.start(1)
-        time.sleep(0.01)
-        num_steps -= 1
-    aziPWM.stop()
-    GPIO.cleanup()
-    return True
+    if dir == "cw":
+        GPIO.output(dir_pin, GPIO.LOW)
+    
+    elif dir == "cc":
+        GPIO.output(dir_pin, GPIO.HIGH)
 
+    if microsteps == 1:
+        GPIO.output(trackConfig["ms1pin"], GPIO.LOW)
+        GPIO.output(trackConfig["ms2pin"], GPIO.LOW)
 
-def altMotor(direction, num_steps):
-    elePWM.ChangeFrequency(5000)
-    GPIO.output(18, direction)
-    while num_steps > 0:
-        elePWM.start(1)
-        time.sleep(0.01)
-        num_steps -= 1
-    elePWM.stop()
-    GPIO.cleanup()
-    return True
+    elif microsteps == 2:
+        GPIO.output(trackConfig["ms1pin"], GPIO.HIGH)
+        GPIO.output(trackConfig["ms2pin"], GPIO.LOW)
+
+    elif microsteps == 4:
+        GPIO.output(trackConfig["ms1pin"], GPIO.LOW)
+        GPIO.output(trackConfig["ms2pin"], GPIO.HIGH)
+
+    elif microsteps == 8:
+        GPIO.output(trackConfig["ms1pin"], GPIO.HIGH)
+        GPIO.output(trackConfig["ms2pin"], GPIO.HIGH)
+
+    while count < steps:
+        GPIO.output(motorpin, GPIO.HIGH)
+        time.sleep(delay)
+        GPIO.output(motorpin, GPIO.LOW)
+        time.sleep(delay)
+        count += 1
 
 
 #Return the opposite of our current bearing. This lets us determine the fastest path to our destination
@@ -105,10 +122,10 @@ def gotoAzi(target):
         azimuth = sensor.get_bearing()
 
         if azimuth > inverseDegree(azimuth):
-            aziMotor(True, 1)
+            step(8, "cw", 8, trackConfig["AziConf"]["AziStepGPIO"])
 
         elif azimuth < inverseDegree(azimuth):
-            aziMotor(False, 1)
+            step(8, "cc", 8, trackConfig["AziConf"]["AziStepGPIO"])
     
         elif rangeCheck(azimuth, target, trackConfig["AziConf"]["AziTolerance"]):
             print("On target! (Azi)")
@@ -121,8 +138,7 @@ def gotoAzi(target):
 # 50 steps = 90 degrees, 0 = level with horizon, 50 = straight up and down.
 #Requirements, no limit switches so we will have to track our steps
 #Slew ring is geared, ratio ???
-#Figure out microstepping
-# 90 / 50 = 1.8 steps per degree
+#Allow for manual adjusting on fly
 
 #Target degress in hours
 def gotoAlt(target):
@@ -145,11 +161,11 @@ def gotoAlt(target):
     while currentStep != targetAlt:
 
         if currentStep < targetAlt:
-            altMotor(True, 1)
+            step(8, "cw", 8, trackConfig["AltConf"]["AltStepGPIO"])
             currentStep = currentStep + 1
 
         elif currentStep > targetAlt:
-            altMotor(False, 1)
+            step(8, "cw", 8, trackConfig["AltConf"]["AltStepGPIO"])
             currentStep = currentStep - 1 
 
         elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= currentStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
