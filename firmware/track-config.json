@@ -17,7 +17,7 @@
         "AziStepGPIO": 16,
         "AziTolerance": 1,
         "AziOffset": 0,
-        "TargetAzi": 0,
+        "TargetAzi": 0
     },
     "ms1pin": 17,
     "ms2pin": 24,
