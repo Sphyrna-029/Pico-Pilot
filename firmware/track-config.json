@@ -19,6 +19,8 @@
         "AziOffset": 0,
         "TargetAzi": 0,
     },
-    "StepsPerDeg": 0.225,
+    "ms1pin": 17,
+    "ms2pin": 24,
+    "StepMode": 8,
     "stellariumAPI": "http://localhost:8090/api/objects/info?name=moon&format=json"
 }
