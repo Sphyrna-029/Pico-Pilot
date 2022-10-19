@@ -38,7 +38,7 @@ def getData():
 
     targetData = json.loads(stellariumResponse.read())
 
-    print(targetData)
+    #print(targetData)
 
     targetData = ast.literal_eval(targetData["altAz"])
 
@@ -146,32 +146,61 @@ def degToStep(x, ratio):
     return round(Steps)
 
 
+# calculates the shortest relative turn in degrees given current and target azimuth
+# current and target azimuth assumed to differ by <360 degrees
+def calcShortestTurn(currAzi, targAzi):
+    upper = lower = targAzi
+    if (targAzi < currAzi):
+        upper += 360
+
+    else:
+        lower -= 360
+
+    deg = (lower - currAzi) if ((currAzi - lower) < (upper - currAzi)) else (upper - currAzi)
+
+    if deg <= 0:
+        dir = "cc"
+        #convert to pos
+        deg = deg * -1
+
+    else:
+        dir = "cw"
+
+    return deg, dir
+
+
 #Move telescope to azimuth target
 def gotoAzi(target):
     global aziStep
     
     #Target azi converted from degrees to steps
     targetAzi = degToStep(target, trackConfig["AziConf"]["GearRatio"])
+    currentAzi = stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])
 
     while aziStep != targetAzi:
 
-        if stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]) > inverseDegree(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])):
+        #Get shortest distance to targeth azimuth (do we go cw or cc)
+        deg, dir = calcShortestTurn(currentAzi, target)
+
+        if dir == "cw":
             if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
-                print("On target! (Azi)")
+                print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
                 return
+
             #step(1 * trackConfig["AziConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
-            aziStep = aziStep - 1
-            print(aziStep)
+            aziStep = aziStep + 1
+            print("AZI STEPS CW: " + str(aziStep))
 
-        elif stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]) < inverseDegree(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])):
+        elif dir == "cc":
             if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
-                print("On target! (Azi)")
+                print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
                 return
-            #step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
-            aziStep = aziStep + 1 
-            print(aziStep)
 
-    print("On target! (Azi)")
+            #step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
+            aziStep = aziStep - 1 
+            print("AZI STEPS CC: " + str(aziStep))
+
+    print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
 
 
 #Move telescope to Altitude Target
@@ -196,15 +225,18 @@ def gotoAlt(target):
         if altStep < targetAlt:
             #step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
             altStep = altStep + 1
-            print(altStep)
+            print("ALT CW " + str(altStep))
+            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
 
         elif altStep > targetAlt:
             #step(1 * trackConfig["AltConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
             altStep = altStep - 1 
-            print(altStep)
+            print("ALT CC " + str(altStep))
+            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
 
         elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= altStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
             print("On target! (Alt)")
+            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
             return 
 
 
