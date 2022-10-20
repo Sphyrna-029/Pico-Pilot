@@ -22,8 +22,8 @@ with open("track-config.json") as configfile:
 
 #Init vars
 targetData = ""
-altStep = 0
-aziStep = 0
+trackerAltitude = 0 #Tracker Altitude in degrees 0 - 90
+trackerAzimuth = 0 #Tracker Azimuth in degrees 0 - 360
 delay = 0.001  # 1 microsecond
 
 
@@ -33,6 +33,7 @@ def getData():
 
     try:
         stellariumResponse = urlopen("http://localhost:8090/api/main/view?coord=altAz")
+    
     except:
         print("Failed to access stellarium api: http://localhost:8090/api/main/view?coord=altAz")
 
@@ -49,10 +50,9 @@ def getData():
     azimuth = math.atan2(y, x)
 
     #Convert from radians to degrees
-    azimuth = math.degrees(azimuth)
+    azimuth = (math.degrees(azimuth) * -1) + 180
     altitude = math.degrees(altitude)
 
-    #print((azimuth * -1) + 180, altitude)
 
     return azimuth, altitude
 
@@ -171,44 +171,29 @@ def calcShortestTurn(currAzi, targAzi):
 
 #Move telescope to azimuth target
 def gotoAzi(target):
-    global aziStep
-    
-    #Target azi converted from degrees to steps
-    targetAzi = degToStep(target, trackConfig["AziConf"]["GearRatio"])
-    currentAzi = stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])
+    global trackerAzimuth
 
-    while aziStep != targetAzi:
+    #Take target and trackerAzimuth and determine degree difference
+    degDifference, direction = calcShortestTurn(trackerAzimuth, target)
 
-        #Get shortest distance to targeth azimuth (do we go cw or cc)
-        deg, dir = calcShortestTurn(currentAzi, target)
+    targetSteps = degToStep(degDifference, trackConfig["AziConf"]["GearRatio"])
+    print("Target Azimuth: " + str(target))
+    print("Target Azimuth Steps: " + str(targetSteps))
+    print("Target Direction: " + direction)
 
-        if dir == "cw":
-            if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
-                print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
-                return
+    for steps in range(targetSteps):
+         #step(1 * trackConfig["AziConf"]["GearRatio"], direction, trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
+         time.sleep(0.001)
 
-            #step(1 * trackConfig["AziConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
-            aziStep = aziStep + 1
-            print("AZI STEPS CW: " + str(aziStep))
+    trackerAzimuth = target
+    print("Current Tracker Azimuth: " + str(trackerAzimuth))
 
-        elif dir == "cc":
-            if rangeCheck(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"]), target, trackConfig["AziConf"]["AziTolerance"]):
-                print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
-                return
 
-            #step(1 * trackConfig["AziConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
-            aziStep = aziStep - 1 
-            print("AZI STEPS CC: " + str(aziStep))
-
-    print("On target! (Azi):" + str(stepsToDeg(aziStep, trackConfig["AziConf"]["GearRatio"])))
 
 
 #Move telescope to Altitude Target
 def gotoAlt(target):
-    global altStep
-
-    #Target altitude converted from degrees to steps
-    targetAlt = degToStep(target, trackConfig["AltConf"]["GearRatio"])
+    global trackerAltitude
 
     #Check if target is below horizon
     if target < trackConfig["AltConf"]["AltMin"]:
@@ -220,30 +205,27 @@ def gotoAlt(target):
         print("Target Alt is out of bounds.")
         return
 
-    while altStep != targetAlt:
+    degDifference, direction = calcShortestTurn(trackerAltitude, target)
 
-        if altStep < targetAlt:
-            #step(1 * trackConfig["AltConf"]["GearRatio"], "cw", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
-            altStep = altStep + 1
-            print("ALT CW " + str(altStep))
-            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
+    targetSteps = degToStep(degDifference, trackConfig["AltConf"]["GearRatio"])
+    print("Altitude Target: " + str(target))
+    print("Target Altitude Steps: " + str(targetSteps))
+    print("Target Direction: " + direction)
 
-        elif altStep > targetAlt:
-            #step(1 * trackConfig["AltConf"]["GearRatio"], "cc", trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
-            altStep = altStep - 1 
-            print("ALT CC " + str(altStep))
-            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
+    for steps in range(targetSteps):
+        #step(1 * trackConfig["AltConf"]["GearRatio"], direction, trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
+        time.sleep(0.001)
+    
+    trackerAltitude = target
+    print("Current Tracker Altitude: " + str(trackerAltitude))
 
-        elif (targetAlt - trackConfig["AltConf"]["AltTolerance"]) <= altStep <= (targetAlt + trackConfig["AltConf"]["AltTolerance"]):
-            print("On target! (Alt)")
-            print(stepsToDeg(altStep, trackConfig["AltConf"]["GearRatio"]))
-            return 
 
 
 #Placeholder main loop
 while True:
     #Get Azi and Alt from Stellarium in degrees
     azimuth, altitude = getData()
+    print("\n\nNew Azimuth: " + str(azimuth) + "  Altitude: " + str(altitude))
     gotoAzi(azimuth)
     gotoAlt(altitude)
 
