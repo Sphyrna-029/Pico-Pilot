@@ -24,7 +24,7 @@ with open("track-config.json") as configfile:
 targetData = ""
 trackerAltitude = 0 #Tracker Altitude in degrees 0 - 90
 trackerAzimuth = 0 #Tracker Azimuth in degrees 0 - 360
-delay = 0.001  # 1 microsecond
+delay = 0.001  # 1 millisecond
 
 
 #Get data from stellarium
@@ -177,18 +177,16 @@ def gotoAzi(target):
     degDifference, direction = calcShortestTurn(trackerAzimuth, target)
 
     targetSteps = degToStep(degDifference, trackConfig["AziConf"]["GearRatio"])
-    print("Target Azimuth: " + str(target))
-    print("Target Azimuth Steps: " + str(targetSteps))
-    print("Target Direction: " + direction)
+    if targetSteps > 0:
+        print("Target Azimuth: " + str(target))
+        print("Target Azimuth Steps: " + str(targetSteps))
+        print("Target Direction: " + direction)
 
     for steps in range(targetSteps):
          #step(1 * trackConfig["AziConf"]["GearRatio"], direction, trackConfig["StepMode"], trackConfig["AziConf"]["AziStepGPIO"])
          time.sleep(0.001)
-
-    trackerAzimuth = target
-    print("Current Tracker Azimuth: " + str(trackerAzimuth))
-
-
+         print("Azimuth Tolerance: " + str(trackerAzimuth - target) )
+         trackerAzimuth = target
 
 
 #Move telescope to Altitude Target
@@ -208,16 +206,16 @@ def gotoAlt(target):
     degDifference, direction = calcShortestTurn(trackerAltitude, target)
 
     targetSteps = degToStep(degDifference, trackConfig["AltConf"]["GearRatio"])
-    print("Altitude Target: " + str(target))
-    print("Target Altitude Steps: " + str(targetSteps))
-    print("Target Direction: " + direction)
+    if targetSteps > 0:
+        print("Altitude Target: " + str(target))
+        print("Target Altitude Steps: " + str(targetSteps))
+        print("Target Direction: " + direction)
 
     for steps in range(targetSteps):
         #step(1 * trackConfig["AltConf"]["GearRatio"], direction, trackConfig["StepMode"], trackConfig["AltConf"]["AltStepGPIO"])
         time.sleep(0.001)
-    
-    trackerAltitude = target
-    print("Current Tracker Altitude: " + str(trackerAltitude))
+
+        trackerAltitude = target
 
 
 
@@ -229,4 +227,4 @@ while True:
     gotoAzi(azimuth)
     gotoAlt(altitude)
 
-    time.sleep(0.5)
+    time.sleep(0.1)
