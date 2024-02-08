@@ -1,4 +1,5 @@
 from machine import Pin, UART, I2C, PWM
+from mpu9250 import MPU9250
 from simple_pid import PID
 from math import *
 import utime, time
@@ -11,6 +12,7 @@ class Vehicle(object):
     latitude = None
     speed = None
     altitude = None
+    azimuth = None
 
     def __init__(self, picoConfig):
         self.mission = picoConfig["WaypointMission"]["Enabled"]
@@ -62,7 +64,7 @@ class Vehicle(object):
         a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
         c = 2 * asin(sqrt(a))
     
-        # Radius of earth in kilometers is 6371
+        # Radius of earth in kilometers is 6371 (Holy cow is there a lot of debate about this)
         km = 6371 * c
     
         return km
@@ -70,19 +72,22 @@ class Vehicle(object):
 
     #Return vehicle azimuth based on true north 
     def getAzimuth(self):
-        
-        return 117
+        i2c = I2C(scl=Pin(22), sda=Pin(21))
+        sensor = MPU9250(i2c)
+        self.azimuth = sensor.magnetic
+
+        return sensor.magnetic
 
 
     #Returns vehicle location if available, long first then lat
     def getCoordinates(self):
-
         if self.longitude:
             if self.latitude:
                 return self.longitude, self.latitude
 
         else:
-            return None
+            return "We lost bro"
+
 
     #Take two coordinates and return bearing converted to azimuth
     def getBearing(self, lon1, lat1, lon2, lat2):
@@ -93,6 +98,7 @@ class Vehicle(object):
         return bearing
 
 
+    #Make the pulses
     def pwm(self, val, pinout):
         min = 1000000
         max = 2000000
@@ -120,6 +126,7 @@ class Vehicle(object):
             print("DutyCycle: " + str(out))
         
             return out, val
+
 
 class Telemetry(object):
 

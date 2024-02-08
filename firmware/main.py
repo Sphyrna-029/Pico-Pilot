@@ -26,7 +26,6 @@ _thread.start_new_thread(telemetry.dataHandler, ())
 home = []
 
 while not home:
-
     if vehicle.getCoordinates():
         home.append(vehicle.longitude)
         home.append(vehicle.latitude)
@@ -45,11 +44,8 @@ while not home:
 
  
 while True:
-
     if vehicle.latitude and vehicle.longitude:
-
         if vehicle.missionStatus:
-
             for waypoint in vehicleConfig["WaypointMission"]["Waypoints"]:
                 print("New destination:" + str(waypoint))
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(waypoint[0]), float(waypoint[1]))
@@ -61,7 +57,6 @@ while True:
                 print(vehicle.getAzimuth())
                 
                 while waypointDistance >= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
-
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
@@ -78,12 +73,10 @@ while True:
 
             #If RTH is enabled, return to home after mission complete.
             if vehicleConfig["WaypointMission"]["ReturnToHome"]:
-
                 waypointDistance = vehicle.destinationDistance(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
                 waypointBearing = vehicle.getBearing(float(vehicle.longitude), float(vehicle.latitude), float(vehicle.homeCoordinates[0]), float(vehicle.homeCoordinates[1]))
                 
                 while waypointDistance <= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
-
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
@@ -100,11 +93,12 @@ while True:
             
             #End mission and return pwm to neutral
             vehicle.stop()
+            print("Mission Stopped")
             
         else:
-            print("Waiting for gps fix")
+            print("Mission Stopped")
 
     else:
-        print("Misson stopped")
+        print("Waiting For GPS Fix")
     
     time.sleep(vehicleConfig["UpdateFrequencyHz"])
