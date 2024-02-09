@@ -96,7 +96,7 @@ class MPU6500:
         self.address = address
 
         # 0x70 = standalone MPU6500, 0x71 = MPU6250 SIP, 0x90 = MPU6700
-        if self.whoami not in [0x71, 0x70, 0x90]:
+        if self.whoami not in [0x71, 0x70, 0x90, 0x73]:
             raise RuntimeError("MPU6500 not found in I2C bus.")
 
         # Reset, disable sleep mode

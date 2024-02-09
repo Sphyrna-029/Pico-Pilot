@@ -54,13 +54,16 @@ while True:
                 print(vehicle.longitude, vehicle.latitude)
                 print(waypointDistance)
                 print(waypointBearing)
-                print(vehicle.getAzimuth())
+                azi, card = vehicle.getAzimuth()
+                print(azi)
+                print(card)
                 
                 while waypointDistance >= vehicleConfig["WaypointMission"]["ArrivalThreshold"]:
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
-                    rudderControl = vehicle.pid1(vehicle.getAzimuth())
+                    azi, _ = vehicle.getAzimuth()
+                    rudderControl = vehicle.pid1(azi)
                     throttleControl = vehicle.pid2(vehicle.speed)
 
                     rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Rudder"])
@@ -80,7 +83,8 @@ while True:
                     vehicle.pid1.setpoint = waypointBearing
                     vehicle.pid2.setpoint = vehicleConfig["WaypointMission"]["Speed"]
 
-                    rudderControl = vehicle.pid1(vehicle.getAzimuth())
+                    azi, _ = vehicle.getAzimuth()
+                    rudderControl = vehicle.pid1(azi)
                     throttleControl = vehicle.pid2(vehicle.speed)
 
                     rudderPwm, rudderRequest = vehicle.pwm(rudderControl, vehicleConfig["VehicleProfile"]["ChannelMappings"]["Rudder"])

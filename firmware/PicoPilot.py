@@ -1,9 +1,11 @@
 from machine import Pin, UART, I2C, PWM
 from mpu9250 import MPU9250
+from ak8963 import AK8963
 from simple_pid import PID
 from math import *
 import utime, time
 import random
+import math
 
 class Vehicle(object):
     missionStatus = None
@@ -12,7 +14,9 @@ class Vehicle(object):
     latitude = None
     speed = None
     altitude = None
+    oldaz = None #heh
     azimuth = None
+    filtered_magx, filtered_magy = 0, 0
 
     def __init__(self, picoConfig):
         self.mission = picoConfig["WaypointMission"]["Enabled"]
@@ -70,13 +74,65 @@ class Vehicle(object):
         return km
 
 
-    #Return vehicle azimuth based on true north 
-    def getAzimuth(self):
-        i2c = I2C(scl=Pin(22), sda=Pin(21))
-        sensor = MPU9250(i2c)
-        self.azimuth = sensor.magnetic
+    #Low pass filter for mpu2950 mag readings
+    def low_pass_filter(self, prev_value, new_value):
+        return 0.85 * prev_value + 0.15 * new_value
 
-        return sensor.magnetic
+
+    #Return human friendly cardinal direction
+    def get_cardinal(angle):
+        if angle > 337 or angle <= 22:
+            direction = 'North'
+
+        elif angle > 22 and angle <= 67:
+            direction = 'North East'
+
+        elif angle > 67 and angle <= 112:
+            direction = "East"
+
+        elif angle > 112 and angle <= 157:
+            direction = "South East"
+
+        elif angle > 157 and angle <= 202:
+            direction = "South"
+
+        elif angle > 202 and angle <= 247:
+            direction = "South West"
+
+        elif angle > 247 and angle <= 292:
+            direction = "West"
+
+        elif angle > 292 and angle <= 337:
+            direction = "North West"
+
+        return direction
+
+
+    #Return vehicle azimuth based on true north (Thanks u/QuietRing5299)
+    def getAzimuth(self):
+        i2c = I2C(0, scl=Pin(1), sda=Pin(0))
+        dummy = MPU9250(i2c)#This opens the bybass to access to the AK8963
+
+        ak8963 = AK8963(
+            i2c,
+            offset=(-10.01602, -19.40039, 50.46211),
+            scale=(0.765315, 0.6868211, 4.212917)
+        )
+
+        sensor = MPU9250(i2c, ak8963=ak8963)
+
+        magx_new, magy_new, _ = sensor.magnetic
+        self.filtered_magx = self.low_pass_filter(self.filtered_magx, magx_new)
+        self.filtered_magy = self.low_pass_filter(self.filtered_magy, magy_new)
+
+        heading_angle_in_degrees = math.atan2(self.filtered_magx, self.filtered_magy) * (180 / math.pi)
+        heading_angle_in_degrees_plus_declination = heading_angle_in_degrees + float(self.vconfig["Magnometer"]["Declination"])
+
+        if heading_angle_in_degrees_plus_declination < 0:
+            heading_angle_in_degrees += 360
+            heading_angle_in_degrees_plus_declination += 360
+
+        return heading_angle_in_degrees_plus_declination, self.get_cardinal(heading_angle_in_degrees_plus_declination)
 
 
     #Returns vehicle location if available, long first then lat
