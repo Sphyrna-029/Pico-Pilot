@@ -80,7 +80,7 @@ class Vehicle(object):
 
 
     #Return human friendly cardinal direction
-    def get_cardinal(angle):
+    def get_cardinal(self, angle):
         if angle > 337 or angle <= 22:
             direction = 'North'
 
