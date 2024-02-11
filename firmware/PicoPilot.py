@@ -79,6 +79,18 @@ class Vehicle(object):
         return 0.85 * prev_value + 0.15 * new_value
 
 
+    #Find shortest turning path between two points on a circle
+    #This will prevent the craft from turning in circles forever if it over shoots its target azimuth
+    def shortest_path(self, src, dest):
+        if (dest - src + 360) % 360 < 180:
+            
+            #Go CW
+            return 0
+        
+        else:
+            #Go CCW
+            return 1
+
     #Return human friendly cardinal direction
     def get_cardinal(self, angle):
         if angle > 337 or angle <= 22:
@@ -142,7 +154,7 @@ class Vehicle(object):
                 return self.longitude, self.latitude
 
         else:
-            return "We lost bro"
+            return None, None
 
 
     #Take two coordinates and return bearing converted to azimuth
@@ -154,9 +166,10 @@ class Vehicle(object):
         return bearing
 
 
-    #Make the pulses
-    def pwm(self, val, pinout):
+    #Throttle PWM
+    def throt_pwm(self, val, pinout):
         min = 1000000
+        neutral = 1500000
         max = 2000000
         pwm = PWM(Pin(pinout))
         pwm.freq(50)
@@ -165,25 +178,70 @@ class Vehicle(object):
             stop = max - min / 2 + min #Return servos to middle or stop motors
             pwm.duty_ns(int(stop))
         
-            print(pinout)
-            print("PWM_Request: Stop") 
-            print("DutyCycle: " + str(stop))
+ 
+            #print("Throttle DutyCycle: " + str(stop))
         
             return 0, val
     
-
         else:
             #Convert 1-100 input from PID to a valid pwm duty cycle for our servo/esc
             out = ((( val - 1 ) * (max - min)) / (100 - 1)) + min
             pwm.duty_ns(int(out))
+         
+            #print("Throttle DutyCycle: " + str(out))
         
-            print(pinout)
-            print("PWM_Request: " + str(val)) 
-            print("DutyCycle: " + str(out))
+            return out, val
+        
+
+    #Rud PWM
+    def rud_pwm(self, val, pinout, dir):
+        min = 1000000
+        neutral = 1500000
+        max = 2000000
+        pwm = PWM(Pin(pinout))
+        pwm.freq(50)
+    
+        if val > 100 or val < 1:
+            stop = max - min / 2 + min #Return servos to middle or stop motors
+            pwm.duty_ns(int(stop))
+        
+            #print("PWM_Request: Stop") 
+            #print("Rudder DutyCycle: " + str(stop))
+        
+            return 0, val
+    
+        #The PID returns a "power level" of 0-100 depending on how aggresively it is trying to turn the craft
+        #Since this is a rudder channel we have two maxes, 1000000(left) and 2000000(right) with 1500000 being neutral
+        #We need to convert our 1-100 value to 1000000-1500000 or 1500000-2000000 depending on direction
+        else:
+            if dir == 1:
+                out = ((( val - 1 ) * (max - min)) / (100 - 1)) + min
+                pwm.duty_ns(int(out))
+
+                return out, val
+
+            elif dir == 0:
+                out = ((( val - 1 ) * (max - neutral)) / (100 - 1)) + min
+                out = neutral - out #Invert signal to go left(ccw)
+                pwm.duty_ns(int(out))
+
+                return out, val
+
+            else:
+                #Invalid direction, stop
+                stop = max - min / 2 + min #Return servos to middle or stop motors
+                pwm.duty_ns(int(stop))
+
+            out = ((( val - 1 ) * (max - min)) / (100 - 1)) + min
+            pwm.duty_ns(int(out))
+        
+            #print("Rudder DutyCycle: " + str(out))
         
             return out, val
 
 
+
+#This whole class is a mess and needs redone
 class Telemetry(object):
 
     def __init__(self, vehicle, picoConfig):
