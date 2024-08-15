@@ -1,0 +1,12 @@
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-TopSignal.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-+3V3.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-GND.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-BotSignal.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-F_Paste.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-B_Paste.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-F_Silkscreen.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-B_Silkscreen.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-F_Mask.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-B_Mask.gbr'.
+Plotted to 'C:\Users\Buck\Desktop\Pico-Pilot\PicoPilot 4\gerbers\RP2350_80QFN_minimal-Edge_Cuts.gbr'.
+Info: Done.
